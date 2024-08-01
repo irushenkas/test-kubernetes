@@ -1,0 +1,146 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service1-config
+data:
+  appication.properties:
+    '
+      	spring.application.name=test-service1
+
+	server.port=8081
+	service.url=http://localhost:8082/test1
+
+	logging.level.org.springframework=TRACE 
+	logging.level.io.app=TRACE
+
+	opentracing.enable-b3-propagation=true
+	opentracing.jaeger.udp-sender.host=localhost
+	opentracing.jaeger.udp-sender.port=6831
+
+	management.endpoints.web.exposure.include=*
+	management.metrics.export.prometheus.enabled=true
+	management.metrics.distribution.percentiles-histogram."[http.server.requests]"=true
+     '
+     
+---  
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: service1
+  name: service1
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service1
+  template:
+    metadata:
+      labels:
+        app: service1
+    spec:
+      containers:
+      - image: service1:1.0
+        imagePullPolicy: IfNotPresent
+        name: service1
+        env:
+          - name: HTTP_PORT
+            value: "8081"
+            
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service1
+  namespace: default
+spec:
+  ports:
+    - name: web
+      port: 81
+  selector:
+    app: service1
+  type: ClusterIP
+  
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service2-config
+data:
+  appication.properties:
+    '
+	spring.application.name=test-service2
+	server.port=8082
+
+	logging.level.org.springframework=TRACE 
+	logging.level.io.app=TRACE
+
+	opentracing.enable-b3-propagation=true
+	opentracing.jaeger.udp-sender.host=localhost
+	opentracing.jaeger.udp-sender.port=6831
+
+	management.endpoints.web.exposure.include=*
+	management.metrics.export.prometheus.enabled=true
+	management.metrics.distribution.percentiles-histogram."[http.server.requests]"=true
+     '
+     
+---  
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: service2
+  name: service2
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service2
+  template:
+    metadata:
+      labels:
+        app: service2
+    spec:
+      containers:
+      - image: service2:1.0
+        imagePullPolicy: IfNotPresent
+        name: service2
+        env:
+          - name: HTTP_PORT
+            value: "8082"
+            
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service2
+  namespace: default
+spec:
+  ports:
+    - name: web
+      port: 82
+  selector:
+    app: service2
+  type: ClusterIP
+  
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: services-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: services-ingress
+  rules:
+  - http:
+      paths:
+      - path: /testservicespath
+        pathType: Prefix
+        backend:
+          service:
+            name: service1
+            port:
+              number: 81
